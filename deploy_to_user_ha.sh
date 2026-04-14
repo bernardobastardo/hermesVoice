@@ -13,6 +13,7 @@ HA_HOST="root@192.168.25.5"
 HA_PORT="22222"
 HA_CONFIG_ROOT="/config"
 HA_COMPONENT_DIR="$HA_CONFIG_ROOT/custom_components/hermes_agent_conversation"
+HA_BACKUP_DIR="$HA_CONFIG_ROOT/custom_components_backup"
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -p "$HA_PORT")
 
 if [[ ! -d "$COMPONENT_SRC" ]]; then
@@ -30,7 +31,7 @@ run_remote "git -C '$HA_CONFIG_ROOT' status --short --branch | sed -n '1,120p'"
 echo
 if run_remote "test -d '$HA_COMPONENT_DIR'"; then
   echo "==> Backing up existing component"
-  run_remote "ts=\$(date +%Y%m%d-%H%M%S); cp -r '$HA_COMPONENT_DIR' '${HA_COMPONENT_DIR}.bak.'\"\$ts\"; echo 'backup=${HA_COMPONENT_DIR}.bak.'\"\$ts\""
+  run_remote "mkdir -p '$HA_BACKUP_DIR'; ts=\$(date +%Y%m%d-%H%M%S); cp -r '$HA_COMPONENT_DIR' '$HA_BACKUP_DIR/hermes_agent_conversation.bak.'\"\$ts\"; echo 'backup=$HA_BACKUP_DIR/hermes_agent_conversation.bak.'\"\$ts\""
 else
   echo "==> No existing remote component to back up"
 fi
