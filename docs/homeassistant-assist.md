@@ -80,6 +80,7 @@ $HA_SSH 'ha core check && ha core restart'
    - additional system prompt
    - prefer local handling first
    - session continuity
+   - session resume timeout
    - request timeout
 
 ## Use it in an Assist pipeline
@@ -111,6 +112,8 @@ The custom component calls:
 - with `stream=true`
 - and sends `X-Hermes-Session-Id` when session continuity is enabled
 
+If Home Assistant reuses the same Assist `conversation_id`, Hermes continues that thread directly. If Home Assistant starts a new Assist conversation on the same device shortly afterward, the component can also reuse the previous Hermes session for a configurable time window so Assist only needs to send the latest utterance.
+
 The component only speaks the assistant text stream. Hermes emits custom `hermes.tool.progress` SSE events for frontend UX, and the component ignores those so TTS stays clean.
 
 ## Speech-friendly behavior
@@ -132,6 +135,7 @@ It also prepends a default speech-oriented system prompt so Hermes answers brief
 ### Session continuity does not work
 - make sure `API_SERVER_KEY` is configured on Hermes
 - enable session continuity in the Home Assistant integration options
+- set a non-zero session resume timeout if Home Assistant tends to open a fresh Assist conversation for follow-up phrases after a short pause
 
 ### Responses are too slow
 - increase the request timeout in the integration options

@@ -34,14 +34,16 @@
           "model": "Model name",
           "prefer_local": "Prefer local Home Assistant handling first",
           "enable_session_continuity": "Preserve multi-turn context with Hermes sessions",
-          "request_timeout": "Request timeout (seconds)"
+          "request_timeout": "Request timeout (seconds)",
+          "session_resume_timeout": "Resume previous session for this many seconds"
         },
         "data_description": {
           "prompt": "Optional extra instructions appended to the default TTS-friendly prompt.",
           "model": "Override the Hermes model name used for requests.",
           "prefer_local": "Try Home Assistant local intent handling before sending the request to Hermes.",
           "enable_session_continuity": "Send `X-Hermes-Session-Id` so Hermes can continue the same Assist conversation.",
-          "request_timeout": "Maximum total request time for Hermes streaming responses."
+          "request_timeout": "Maximum total request time for Hermes streaming responses.",
+          "session_resume_timeout": "If Home Assistant starts a new Assist conversation on the same device within this window, reuse the previous Hermes session instead of starting a fresh thread. Set to 0 to disable the time-based resume behavior."
         }
       }
     }

@@ -14,6 +14,7 @@ CONF_PROMPT = "prompt"
 CONF_PREFER_LOCAL = "prefer_local"
 CONF_REQUEST_TIMEOUT = "request_timeout"
 CONF_ENABLE_SESSION_CONTINUITY = "enable_session_continuity"
+CONF_SESSION_RESUME_TIMEOUT = "session_resume_timeout"
 
 DEFAULT_NAME = "Hermes Agent Conversation"
 DEFAULT_BASE_URL = "http://127.0.0.1:8642/v1"
@@ -21,6 +22,7 @@ DEFAULT_MODEL = "hermes-agent"
 DEFAULT_REQUEST_TIMEOUT = 90
 DEFAULT_PREFER_LOCAL = True
 DEFAULT_ENABLE_SESSION_CONTINUITY = True
+DEFAULT_SESSION_RESUME_TIMEOUT = 300
 
 SESSION_PREFIX = "ha-assist"
 

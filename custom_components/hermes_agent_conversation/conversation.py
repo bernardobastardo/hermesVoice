@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import AsyncGenerator
+from time import monotonic
 from typing import Literal
 
 import aiohttp
@@ -32,11 +33,13 @@ from .const import (
     CONF_PREFER_LOCAL,
     CONF_PROMPT,
     CONF_REQUEST_TIMEOUT,
+    CONF_SESSION_RESUME_TIMEOUT,
     DEFAULT_ENABLE_SESSION_CONTINUITY,
     DEFAULT_MODEL,
     DEFAULT_NAME,
     DEFAULT_PREFER_LOCAL,
     DEFAULT_REQUEST_TIMEOUT,
+    DEFAULT_SESSION_RESUME_TIMEOUT,
     DOMAIN,
     LOGGER,
     SESSION_PREFIX,
@@ -56,6 +59,7 @@ _RE_MD_BULLET = re.compile(r"^\s*[-*+]\s+", re.MULTILINE)
 _RE_MD_NUMBERED = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
 _RE_MULTI_SPACE = re.compile(r"  +")
 _RE_MULTI_NEWLINE = re.compile(r"\n{3,}")
+_RE_SESSION_SAFE = re.compile(r"[^a-zA-Z0-9_.:-]+")
 
 _DEFAULT_PROMPT = (
     "You are responding through Home Assistant Assist. "
@@ -162,6 +166,8 @@ class HermesConversationEntity(ConversationEntity):
         self.entry = entry
         self._hass = hass
         self._attr_unique_id = entry.entry_id
+        self._recent_session_by_scope: dict[str, tuple[str, float]] = {}
+        self._session_by_conversation_id: dict[str, str] = {}
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title or DEFAULT_NAME,
@@ -215,13 +221,102 @@ class HermesConversationEntity(ConversationEntity):
         )
 
     @property
+    def _session_resume_timeout(self) -> int:
+        return int(
+            self.entry.options.get(
+                CONF_SESSION_RESUME_TIMEOUT,
+                DEFAULT_SESSION_RESUME_TIMEOUT,
+            )
+        )
+
+    @property
     def _headers(self) -> dict[str, str]:
         return dict(self._auth_headers)
 
-    def _get_session_id(self, conversation_id: str | None) -> str | None:
-        if not conversation_id or not self._enable_session_continuity:
+    def _normalize_session_value(self, value: str | None) -> str | None:
+        if not value:
             return None
-        return f"{SESSION_PREFIX}:{conversation_id}"
+        normalized = _RE_SESSION_SAFE.sub("-", value).strip("-")
+        return normalized or None
+
+    def _get_scope_key(self, user_input: ConversationInput) -> str | None:
+        parts = [
+            getattr(user_input, "device_id", None),
+            getattr(user_input, "device_name", None),
+            getattr(user_input, "agent_id", None),
+            getattr(user_input, "language", None),
+        ]
+        normalized_parts = [
+            normalized
+            for part in parts
+            if (normalized := self._normalize_session_value(str(part) if part else None))
+        ]
+        if not normalized_parts:
+            return None
+        return "|".join(normalized_parts)
+
+    def _prune_expired_sessions(self) -> None:
+        now = monotonic()
+        active_recent_sessions: dict[str, tuple[str, float]] = {}
+        active_session_ids: set[str] = set()
+
+        for scope_key, (session_id, expires_at) in self._recent_session_by_scope.items():
+            if expires_at > now:
+                active_recent_sessions[scope_key] = (session_id, expires_at)
+                active_session_ids.add(session_id)
+
+        self._recent_session_by_scope = active_recent_sessions
+        self._session_by_conversation_id = {
+            conversation_id: session_id
+            for conversation_id, session_id in self._session_by_conversation_id.items()
+            if session_id in active_session_ids
+        }
+
+    def _remember_session(
+        self,
+        user_input: ConversationInput,
+        hermes_session_id: str,
+    ) -> None:
+        conversation_id = getattr(user_input, "conversation_id", None)
+        if conversation_id:
+            self._session_by_conversation_id[conversation_id] = hermes_session_id
+
+        scope_key = self._get_scope_key(user_input)
+        if scope_key and self._session_resume_timeout > 0:
+            self._recent_session_by_scope[scope_key] = (
+                hermes_session_id,
+                monotonic() + self._session_resume_timeout,
+            )
+
+    def _get_session_id(self, user_input: ConversationInput) -> str | None:
+        if not self._enable_session_continuity:
+            return None
+
+        self._prune_expired_sessions()
+
+        conversation_id = getattr(user_input, "conversation_id", None)
+        if conversation_id and conversation_id in self._session_by_conversation_id:
+            return self._session_by_conversation_id[conversation_id]
+
+        scope_key = self._get_scope_key(user_input)
+        if scope_key:
+            recent_session = self._recent_session_by_scope.get(scope_key)
+            if recent_session is not None:
+                session_id, expires_at = recent_session
+                if expires_at > monotonic():
+                    if conversation_id:
+                        self._session_by_conversation_id[conversation_id] = session_id
+                    return session_id
+
+        normalized_conversation_id = self._normalize_session_value(conversation_id)
+        if normalized_conversation_id:
+            return f"{SESSION_PREFIX}:{normalized_conversation_id}"
+
+        normalized_scope_key = self._normalize_session_value(scope_key)
+        if normalized_scope_key:
+            return f"{SESSION_PREFIX}:scope:{normalized_scope_key}"
+
+        return None
 
     async def _try_local_intent(
         self, user_input: ConversationInput, chat_log: ChatLog
@@ -310,7 +405,7 @@ class HermesConversationEntity(ConversationEntity):
         }
 
         headers = self._headers
-        session_id = self._get_session_id(user_input.conversation_id)
+        session_id = self._get_session_id(user_input)
         if session_id:
             headers["X-Hermes-Session-Id"] = session_id
 
@@ -337,6 +432,8 @@ class HermesConversationEntity(ConversationEntity):
                 user_input.agent_id, _transform_stream(resp)
             ):
                 pass
+            if session_id:
+                self._remember_session(user_input, session_id)
         except Exception as err:  # pragma: no cover - defensive HA runtime guard
             LOGGER.error("Error while streaming response from Hermes: %s", err)
             return conversation.async_get_result_from_chat_log(user_input, chat_log)

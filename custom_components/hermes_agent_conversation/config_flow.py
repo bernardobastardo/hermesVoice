@@ -30,12 +30,14 @@ from .const import (
     CONF_PREFER_LOCAL,
     CONF_PROMPT,
     CONF_REQUEST_TIMEOUT,
+    CONF_SESSION_RESUME_TIMEOUT,
     DEFAULT_BASE_URL,
     DEFAULT_ENABLE_SESSION_CONTINUITY,
     DEFAULT_MODEL,
     DEFAULT_NAME,
     DEFAULT_PREFER_LOCAL,
     DEFAULT_REQUEST_TIMEOUT,
+    DEFAULT_SESSION_RESUME_TIMEOUT,
     DOMAIN,
     normalize_base_url,
 )
@@ -89,6 +91,20 @@ def _options_schema(config_entry: ConfigEntry) -> vol.Schema:
                     max=300,
                     mode=NumberSelectorMode.BOX,
                     step=5,
+                )
+            ),
+            vol.Optional(
+                CONF_SESSION_RESUME_TIMEOUT,
+                default=config_entry.options.get(
+                    CONF_SESSION_RESUME_TIMEOUT,
+                    DEFAULT_SESSION_RESUME_TIMEOUT,
+                ),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    max=3600,
+                    mode=NumberSelectorMode.BOX,
+                    step=15,
                 )
             ),
         }
@@ -211,6 +227,10 @@ class HermesAgentConversationOptionsFlowHandler(OptionsFlow):
                     CONF_REQUEST_TIMEOUT: self.config_entry.options.get(
                         CONF_REQUEST_TIMEOUT,
                         DEFAULT_REQUEST_TIMEOUT,
+                    ),
+                    CONF_SESSION_RESUME_TIMEOUT: self.config_entry.options.get(
+                        CONF_SESSION_RESUME_TIMEOUT,
+                        DEFAULT_SESSION_RESUME_TIMEOUT,
                     ),
                 },
             ),
