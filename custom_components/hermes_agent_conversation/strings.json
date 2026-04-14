@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Hermes Agent",
+        "description": "Enter the connection details for your Hermes API server.",
+        "data": {
+          "base_url": "Hermes API Server URL",
+          "api_key": "API key",
+          "model": "Model name"
+        },
+        "data_description": {
+          "base_url": "The Hermes API server base URL. `/v1` is added automatically if omitted.",
+          "api_key": "Bearer token from API_SERVER_KEY. Required for auth and session continuity.",
+          "model": "Model exposed by Hermes on `/v1/models`, usually `hermes-agent` or your profile name."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Hermes API server. Check the URL and make sure the API server is running.",
+      "invalid_auth": "Invalid API key.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Hermes API server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hermes Agent Conversation options",
+        "data": {
+          "prompt": "Additional system prompt",
+          "model": "Model name",
+          "prefer_local": "Prefer local Home Assistant handling first",
+          "enable_session_continuity": "Preserve multi-turn context with Hermes sessions",
+          "request_timeout": "Request timeout (seconds)"
+        },
+        "data_description": {
+          "prompt": "Optional extra instructions appended to the default TTS-friendly prompt.",
+          "model": "Override the Hermes model name used for requests.",
+          "prefer_local": "Try Home Assistant local intent handling before sending the request to Hermes.",
+          "enable_session_continuity": "Send `X-Hermes-Session-Id` so Hermes can continue the same Assist conversation.",
+          "request_timeout": "Maximum total request time for Hermes streaming responses."
+        }
+      }
+    }
+  }
+}
